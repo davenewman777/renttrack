@@ -9,8 +9,9 @@ from PySide6.QtWidgets import (
     QMessageBox
 )
 
-from database.db import get_connection
+from database import repository
 
+import sqlite3
 from datetime import date
 
 
@@ -122,53 +123,7 @@ class PaymentWindow(QWidget):
 
         self.lease_combo.clear()
 
-
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-
-        cursor.execute(
-            """
-            SELECT
-
-            l.id,
-
-            t.first_name,
-            t.last_name,
-
-            p.name,
-
-            u.name,
-
-            l.monthly_rent
-
-
-            FROM leases l
-
-
-            JOIN tenants t
-            ON l.tenant_id=t.id
-
-
-            JOIN units u
-            ON l.unit_id=u.id
-
-
-            JOIN properties p
-            ON l.property_id=p.id
-
-
-            WHERE l.active=1
-
-            """
-        )
-
-
-        leases = cursor.fetchall()
-
-
-        for lease in leases:
+        for lease in repository.active_leases_with_details():
 
             display = (
 
@@ -184,9 +139,6 @@ class PaymentWindow(QWidget):
                 display,
                 lease[0]
             )
-
-
-        connection.close()
 
 
 
@@ -211,51 +163,44 @@ class PaymentWindow(QWidget):
             return
 
 
-        connection = get_connection()
+        amount_text = self.amount.text().strip()
 
-        cursor = connection.cursor()
+        try:
+            amount = float(amount_text)
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Invalid Amount",
+                "Amount must be a number."
+            )
+            return
+
+        if amount <= 0:
+            QMessageBox.warning(
+                self,
+                "Invalid Amount",
+                "Amount must be greater than zero."
+            )
+            return
 
 
-        receipt_number = (
-            f"RT-{date.today().year}-"
-            f"{cursor.execute('SELECT COUNT(*) FROM payments').fetchone()[0]+1:06d}"
-        )
+        try:
 
-
-        cursor.execute(
-            """
-            INSERT INTO payments
-            (
-            lease_id,
-            receipt_number,
-            payment_date,
-            amount,
-            payment_method
+            receipt_number = repository.add_payment(
+                lease_id,
+                amount,
+                self.method.currentText(),
             )
 
-            VALUES (?,?,?,?,?)
+        except sqlite3.Error as error:
 
-            """,
-
-            (
-
-            lease_id,
-
-            receipt_number,
-
-            str(date.today()),
-
-            self.amount.text(),
-
-            self.method.currentText()
-
+            QMessageBox.critical(
+                self,
+                "Database Error",
+                f"Could not save payment:\n{error}"
             )
-        )
 
-
-        connection.commit()
-
-        connection.close()
+            return
 
 
         QMessageBox.information(
@@ -276,28 +221,7 @@ class PaymentWindow(QWidget):
 
         self.payment_list.clear()
 
-
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-
-        cursor.execute(
-            """
-            SELECT
-            receipt_number,
-            amount,
-            payment_date
-
-            FROM payments
-
-            ORDER BY id DESC
-
-            """
-        )
-
-
-        for payment in cursor.fetchall():
+        for payment in repository.list_payments():
 
             self.payment_list.addItem(
 
@@ -306,6 +230,3 @@ class PaymentWindow(QWidget):
                 f"{payment[2]}"
 
             )
-
-
-        connection.close()

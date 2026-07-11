@@ -10,6 +10,7 @@ from ui.properties import PropertyWindow
 from ui.units import UnitWindow
 from ui.leases import LeaseWindow
 from ui.payments import PaymentWindow
+from ui.reports import ReportsWindow
 
 class MainWindow(QMainWindow):
 
@@ -29,12 +30,12 @@ class MainWindow(QMainWindow):
             "font-size: 24px;"
         )
 
-        new_payment = QPushButton(
-            "New Payment"
-        )
-
         tenants = QPushButton(
             "Manage Tenants"
+        )
+
+        tenants.clicked.connect(
+            self.open_tenants
         )
 
         properties = QPushButton(
@@ -45,14 +46,6 @@ class MainWindow(QMainWindow):
             self.open_properties
         )
 
-        leases = QPushButton(
-            "Manage Leases"
-        )
-
-        leases.clicked.connect(
-        self.open_leases
-        )
-
         units = QPushButton(
             "Manage Units"
         )
@@ -61,8 +54,12 @@ class MainWindow(QMainWindow):
             self.open_units
         )
 
-        tenants.clicked.connect(
-            self.open_tenants
+        leases = QPushButton(
+            "Manage Leases"
+        )
+
+        leases.clicked.connect(
+            self.open_leases
         )
 
         payments = QPushButton(
@@ -73,20 +70,20 @@ class MainWindow(QMainWindow):
             self.open_payments
         )
 
-        layout.addWidget(
-            payments
-        )
-
         reports = QPushButton(
             "Reports"
         )
 
+        reports.clicked.connect(
+            self.open_reports
+        )
+
         layout.addWidget(title)
-        layout.addWidget(new_payment)
-        layout.addWidget(tenants)
         layout.addWidget(properties)
         layout.addWidget(units)
+        layout.addWidget(tenants)
         layout.addWidget(leases)
+        layout.addWidget(payments)
         layout.addWidget(reports)
 
         container = QWidget()
@@ -118,3 +115,8 @@ class MainWindow(QMainWindow):
 
         self.payment_window = PaymentWindow()
         self.payment_window.show()
+
+    def open_reports(self):
+
+        self.reports_window = ReportsWindow()
+        self.reports_window.show()

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QListWidget
 )
 
-from database.db import get_connection
+from database import repository
 
 
 class PropertyWindow(QWidget):
@@ -57,27 +57,10 @@ class PropertyWindow(QWidget):
 
     def save_property(self):
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            INSERT INTO properties
-            (
-            name,
-            address
-            )
-            VALUES (?,?)
-            """,
-            (
+        repository.add_property(
             self.name.text(),
-            self.address.text()
-            )
+            self.address.text(),
         )
-
-        connection.commit()
-        connection.close()
 
         self.load_properties()
 
@@ -86,21 +69,8 @@ class PropertyWindow(QWidget):
 
         self.list.clear()
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT name,address
-            FROM properties
-            """
-        )
-
-        for row in cursor.fetchall():
+        for row in repository.list_properties():
 
             self.list.addItem(
-                f"{row[0]} - {row[1]}"
+                f"{row[1]} - {row[2]}"
             )
-
-        connection.close()

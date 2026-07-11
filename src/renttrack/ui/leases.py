@@ -9,7 +9,10 @@ from PySide6.QtWidgets import (
     QMessageBox
 )
 
-from database.db import get_connection
+from database import repository
+
+import sqlite3
+from datetime import datetime
 
 
 class LeaseWindow(QWidget):
@@ -174,21 +177,7 @@ class LeaseWindow(QWidget):
 
         self.tenant_combo.clear()
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT id, first_name, last_name
-            FROM tenants
-            ORDER BY last_name
-            """
-        )
-
-        tenants = cursor.fetchall()
-
-        for tenant in tenants:
+        for tenant in repository.list_tenants():
 
             tenant_id = tenant[0]
 
@@ -201,8 +190,6 @@ class LeaseWindow(QWidget):
                 tenant_id
             )
 
-        connection.close()
-
 
 
     #
@@ -212,31 +199,12 @@ class LeaseWindow(QWidget):
 
         self.property_combo.clear()
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT id,name
-            FROM properties
-            ORDER BY name
-            """
-        )
-
-        properties = cursor.fetchall()
-
-
-        for prop in properties:
+        for prop in repository.list_properties():
 
             self.property_combo.addItem(
                 prop[1],
                 prop[0]
             )
-
-
-        connection.close()
-
 
         self.load_units()
 
@@ -253,35 +221,11 @@ class LeaseWindow(QWidget):
             self.property_combo.currentData()
         )
 
-        print("Loading units for property:", property_id)
-
         if property_id is None:
             self.unit_combo.clear()
-            print("No property selected, clearing units.")
             return
 
-
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT id,name,monthly_rent
-            FROM units
-            WHERE property_id=?
-            ORDER BY name
-            """,
-            (
-                property_id,
-            )
-        )
-
-
-        units = cursor.fetchall()
-
-
-        for unit in units:
+        for unit in repository.units_for_property(property_id):
 
             self.unit_combo.addItem(
                 unit[1],
@@ -290,10 +234,6 @@ class LeaseWindow(QWidget):
                     "rent": unit[2]
                 }
             )
-
-
-        connection.close()
-
 
         self.load_rent()
 
@@ -346,51 +286,80 @@ class LeaseWindow(QWidget):
             return
 
 
-        connection = get_connection()
+        rent_text = self.rent.text().strip()
 
-        cursor = connection.cursor()
+        try:
+            monthly_rent = float(rent_text)
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Invalid Rent",
+                "Monthly rent must be a number."
+            )
+            return
+
+        if monthly_rent <= 0:
+            QMessageBox.warning(
+                self,
+                "Invalid Rent",
+                "Monthly rent must be greater than zero."
+            )
+            return
 
 
-        cursor.execute(
-            """
-            INSERT INTO leases
-            (
-            tenant_id,
-            property_id,
-            unit_id,
-            lease_start,
-            lease_end,
-            monthly_rent,
-            security_deposit
+        deposit_text = self.deposit.text().strip()
+
+        if deposit_text:
+            try:
+                security_deposit = float(deposit_text)
+            except ValueError:
+                QMessageBox.warning(
+                    self,
+                    "Invalid Deposit",
+                    "Security deposit must be a number."
+                )
+                return
+        else:
+            security_deposit = 0.0
+
+
+        start_text = self.start_date.text().strip()
+        end_text = self.end_date.text().strip()
+
+        for label, value in (("start", start_text), ("end", end_text)):
+            if value:
+                try:
+                    datetime.strptime(value, "%Y-%m-%d")
+                except ValueError:
+                    QMessageBox.warning(
+                        self,
+                        "Invalid Date",
+                        f"Lease {label} date must be in YYYY-MM-DD format."
+                    )
+                    return
+
+
+        try:
+
+            repository.create_lease(
+                tenant_id,
+                property_id,
+                unit["id"],
+                start_text,
+                end_text,
+                monthly_rent,
+                security_deposit,
             )
 
-            VALUES (?,?,?,?,?,?,?)
+        except sqlite3.Error as error:
 
-            """,
-
-            (
-
-            tenant_id,
-
-            property_id,
-
-            unit["id"],
-
-            self.start_date.text(),
-
-            self.end_date.text(),
-
-            self.rent.text(),
-
-            self.deposit.text()
-
+            QMessageBox.critical(
+                self,
+                "Database Error",
+                f"Could not create lease:\n{error}"
             )
-        )
 
-
-        connection.commit()
-
-        connection.close()
+            return
 
 
         QMessageBox.information(
@@ -398,6 +367,8 @@ class LeaseWindow(QWidget):
             "Success",
             "Lease created successfully."
         )
+
+        self.load_leases()
 
 
         self.load_leases()
@@ -411,42 +382,7 @@ class LeaseWindow(QWidget):
 
         self.lease_list.clear()
 
-
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-
-        cursor.execute(
-            """
-            SELECT
-            t.first_name,
-            t.last_name,
-            p.name,
-            u.name,
-            l.monthly_rent
-
-            FROM leases l
-
-            JOIN tenants t
-            ON l.tenant_id=t.id
-
-            JOIN properties p
-            ON l.property_id=p.id
-
-            JOIN units u
-            ON l.unit_id=u.id
-
-            ORDER BY l.id DESC
-
-            """
-        )
-
-
-        leases = cursor.fetchall()
-
-
-        for lease in leases:
+        for lease in repository.list_leases_with_details():
 
             self.lease_list.addItem(
 
@@ -456,6 +392,3 @@ class LeaseWindow(QWidget):
                 f"${lease[4]}"
 
             )
-
-
-        connection.close()

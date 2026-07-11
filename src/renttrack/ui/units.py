@@ -9,7 +9,9 @@ from PySide6.QtWidgets import (
     QMessageBox
 )
 
-from database.db import get_connection
+from database import repository
+
+import sqlite3
 
 
 class UnitWindow(QWidget):
@@ -140,30 +142,12 @@ class UnitWindow(QWidget):
 
         self.property_combo.clear()
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT id,name
-            FROM properties
-            ORDER BY name
-            """
-        )
-
-        properties = cursor.fetchall()
-
-
-        for prop in properties:
+        for prop in repository.list_properties():
 
             self.property_combo.addItem(
                 prop[1],
                 prop[0]
             )
-
-
-        connection.close()
 
 
 
@@ -188,37 +172,41 @@ class UnitWindow(QWidget):
             return
 
 
-        connection = get_connection()
+        rent_text = self.rent.text().strip()
 
-        cursor = connection.cursor()
-
-
-        cursor.execute(
-            """
-            INSERT INTO units
-            (
-            property_id,
-            name,
-            description,
-            monthly_rent
+        try:
+            monthly_rent = float(rent_text)
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Invalid Rent",
+                "Monthly rent must be a number."
             )
+            return
 
-            VALUES (?,?,?,?)
+        if monthly_rent <= 0:
+            QMessageBox.warning(
+                self,
+                "Invalid Rent",
+                "Monthly rent must be greater than zero."
+            )
+            return
 
-            """,
 
-            (
+        try:
+            repository.add_unit(
                 property_id,
                 self.name.text(),
                 self.description.text(),
-                self.rent.text()
+                monthly_rent,
             )
-        )
-
-
-        connection.commit()
-
-        connection.close()
+        except sqlite3.Error as error:
+            QMessageBox.critical(
+                self,
+                "Database Error",
+                f"Could not save unit:\n{error}"
+            )
+            return
 
 
         QMessageBox.information(
@@ -239,35 +227,7 @@ class UnitWindow(QWidget):
 
         self.unit_list.clear()
 
-
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-
-        cursor.execute(
-            """
-            SELECT
-            p.name,
-            u.name,
-            u.description,
-            u.monthly_rent
-
-            FROM units u
-
-            JOIN properties p
-            ON u.property_id=p.id
-
-            ORDER BY p.name,u.name
-
-            """
-        )
-
-
-        units = cursor.fetchall()
-
-
-        for unit in units:
+        for unit in repository.list_units_with_property():
 
             self.unit_list.addItem(
 
@@ -277,6 +237,3 @@ class UnitWindow(QWidget):
                 f"${unit[3]}"
 
             )
-
-
-        connection.close()

@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QListWidget
 )
 
-from database.db import get_connection
+from database import repository
 
 
 class TenantWindow(QWidget):
@@ -76,29 +76,11 @@ class TenantWindow(QWidget):
 
     def save_tenant(self):
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            INSERT INTO tenants
-            (
-            first_name,
-            last_name,
-            email
-            )
-            VALUES (?,?,?)
-            """,
-            (
+        repository.add_tenant(
             self.first_name.text(),
             self.last_name.text(),
-            self.email.text()
-            )
+            self.email.text(),
         )
-
-        connection.commit()
-        connection.close()
 
         self.load_tenants()
 
@@ -107,21 +89,8 @@ class TenantWindow(QWidget):
 
         self.list.clear()
 
-        connection = get_connection()
-
-        cursor = connection.cursor()
-
-        cursor.execute(
-            """
-            SELECT first_name,last_name,email
-            FROM tenants
-            """
-        )
-
-        for row in cursor.fetchall():
+        for row in repository.list_tenants():
 
             self.list.addItem(
-                f"{row[0]} {row[1]} - {row[2]}"
+                f"{row[1]} {row[2]} - {row[3]}"
             )
-
-        connection.close()
