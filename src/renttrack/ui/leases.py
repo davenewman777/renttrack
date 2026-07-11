@@ -1,11 +1,14 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QPushButton,
     QLabel,
     QComboBox,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QMessageBox
 )
 
@@ -23,6 +26,8 @@ class LeaseWindow(QWidget):
 
         self.setWindowTitle("Lease Management")
         self.resize(500, 600)
+
+        self.selected_id = None
 
         layout = QVBoxLayout()
 
@@ -132,27 +137,38 @@ class LeaseWindow(QWidget):
         #
         # Save
         #
-        save_button = QPushButton(
+        self.save_button = QPushButton(
             "Create Lease"
         )
 
-        save_button.clicked.connect(
+        self.save_button.clicked.connect(
             self.save_lease
         )
 
-        layout.addWidget(
-            save_button
-        )
+        new_button = QPushButton("New")
+        new_button.clicked.connect(self.clear_form)
+
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.clicked.connect(self.delete_lease)
+        self.delete_button.setEnabled(False)
+
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.save_button)
+        buttons.addWidget(new_button)
+        buttons.addWidget(self.delete_button)
+
+        layout.addLayout(buttons)
 
 
         #
         # Existing Leases
         #
         layout.addWidget(
-            QLabel("Existing Leases")
+            QLabel("Existing Leases (click to edit)")
         )
 
         self.lease_list = QListWidget()
+        self.lease_list.itemClicked.connect(self.select_lease)
 
         layout.addWidget(
             self.lease_list
@@ -341,36 +357,130 @@ class LeaseWindow(QWidget):
 
         try:
 
-            repository.create_lease(
-                tenant_id,
-                property_id,
-                unit["id"],
-                start_text,
-                end_text,
-                monthly_rent,
-                security_deposit,
-            )
+            if self.selected_id is None:
+                repository.create_lease(
+                    tenant_id,
+                    property_id,
+                    unit["id"],
+                    start_text,
+                    end_text,
+                    monthly_rent,
+                    security_deposit,
+                )
+            else:
+                repository.update_lease(
+                    self.selected_id,
+                    tenant_id,
+                    property_id,
+                    unit["id"],
+                    start_text,
+                    end_text,
+                    monthly_rent,
+                    security_deposit,
+                )
 
         except sqlite3.Error as error:
 
             QMessageBox.critical(
                 self,
                 "Database Error",
-                f"Could not create lease:\n{error}"
+                f"Could not save lease:\n{error}"
             )
 
             return
 
 
-        QMessageBox.information(
-            self,
-            "Success",
-            "Lease created successfully."
-        )
-
+        self.clear_form()
         self.load_leases()
 
 
+
+    #
+    # Load One Lease Into The Form
+    #
+    def select_lease(self, item):
+
+        lease_id = item.data(Qt.UserRole)
+        record = repository.get_lease(lease_id)
+
+        if record is None:
+            return
+
+        # record = (id, tenant_id, property_id, unit_id,
+        #           lease_start, lease_end, monthly_rent, security_deposit)
+        self.selected_id = record[0]
+
+        tenant_index = self.tenant_combo.findData(record[1])
+        if tenant_index >= 0:
+            self.tenant_combo.setCurrentIndex(tenant_index)
+
+        # Setting the property repopulates the unit combo (and resets rent),
+        # so choose the unit and rent/deposit afterwards.
+        property_index = self.property_combo.findData(record[2])
+        if property_index >= 0:
+            self.property_combo.setCurrentIndex(property_index)
+
+        for i in range(self.unit_combo.count()):
+            data = self.unit_combo.itemData(i)
+            if data and data.get("id") == record[3]:
+                self.unit_combo.setCurrentIndex(i)
+                break
+
+        self.start_date.setText(record[4] or "")
+        self.end_date.setText(record[5] or "")
+        self.rent.setText(str(record[6]) if record[6] is not None else "")
+        self.deposit.setText(str(record[7]) if record[7] is not None else "")
+
+        self.save_button.setText("Update Lease")
+        self.delete_button.setEnabled(True)
+
+
+
+    #
+    # Reset The Form For A New Lease
+    #
+    def clear_form(self):
+
+        self.selected_id = None
+        self.start_date.clear()
+        self.end_date.clear()
+        self.rent.clear()
+        self.deposit.clear()
+        self.lease_list.clearSelection()
+
+        self.save_button.setText("Create Lease")
+        self.delete_button.setEnabled(False)
+
+
+
+    #
+    # Delete The Selected Lease
+    #
+    def delete_lease(self):
+
+        if self.selected_id is None:
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Delete Lease",
+            "Delete this lease?"
+        )
+
+        if confirm != QMessageBox.Yes:
+            return
+
+        try:
+            repository.delete_lease(self.selected_id)
+        except sqlite3.Error as error:
+            QMessageBox.critical(
+                self,
+                "Database Error",
+                f"Could not delete lease:\n{error}"
+            )
+            return
+
+        self.clear_form()
         self.load_leases()
 
 
@@ -382,13 +492,18 @@ class LeaseWindow(QWidget):
 
         self.lease_list.clear()
 
-        for lease in repository.list_leases_with_details():
+        # row = (id, tenant_id, property_id, unit_id, first_name, last_name,
+        #        property_name, unit_name, lease_start, lease_end,
+        #        monthly_rent, security_deposit)
+        for row in repository.list_leases_full():
 
-            self.lease_list.addItem(
+            item = QListWidgetItem(
 
-                f"{lease[0]} {lease[1]} | "
-                f"{lease[2]} | "
-                f"{lease[3]} | "
-                f"${lease[4]}"
+                f"{row[4]} {row[5]} | "
+                f"{row[6]} | "
+                f"{row[7]} | "
+                f"${row[10]}"
 
             )
+            item.setData(Qt.UserRole, row[0])
+            self.lease_list.addItem(item)

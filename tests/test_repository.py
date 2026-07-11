@@ -113,3 +113,76 @@ def test_foreign_key_enforced_on_payment(temp_db):
     # No lease with id 9999 exists; FK enforcement should reject it.
     with pytest.raises(sqlite3.IntegrityError):
         repository.add_payment(9999, 100.0, "Cash")
+
+
+def test_update_and_delete_property(temp_db):
+    repository.add_property("House", "123 St")
+    property_id = repository.list_properties()[0][0]
+
+    repository.update_property(property_id, "Cottage", "9 Lake Rd")
+    record = repository.get_property(property_id)
+    assert record[1] == "Cottage"
+    assert record[2] == "9 Lake Rd"
+
+    repository.delete_property(property_id)
+    assert repository.list_properties() == []
+
+
+def test_update_and_delete_tenant(temp_db):
+    repository.add_tenant("Sam", "Lee", "sam@example.com", "555-0100")
+    tenant_id = repository.list_tenants()[0][0]
+
+    repository.update_tenant(tenant_id, "Samuel", "Lee", "sam@new.com", "555-0200")
+    record = repository.get_tenant(tenant_id)
+    assert record[1] == "Samuel"
+    assert record[3] == "sam@new.com"
+    assert record[4] == "555-0200"
+
+    repository.delete_tenant(tenant_id)
+    assert repository.list_tenants() == []
+
+
+def test_update_and_delete_unit(temp_db):
+    repository.add_property("House", "123 St")
+    property_id = repository.list_properties()[0][0]
+    repository.add_unit(property_id, "Room 1", "Spare", 450.0)
+    unit_id = repository.units_for_property(property_id)[0][0]
+
+    repository.update_unit(unit_id, property_id, "Room A", "Master", 600.0)
+    record = repository.get_unit(unit_id)
+    assert record[2] == "Room A"
+    assert record[4] == 600.0
+
+    repository.delete_unit(unit_id)
+    assert repository.units_for_property(property_id) == []
+
+
+def test_update_and_delete_lease(temp_db):
+    lease_id = _seed_lease()
+    lease = repository.get_lease(lease_id)
+    tenant_id, property_id, unit_id = lease[1], lease[2], lease[3]
+
+    repository.update_lease(
+        lease_id, tenant_id, property_id, unit_id,
+        "2026-02-01", "2026-11-30", 550.0, 600.0,
+    )
+    updated = repository.get_lease(lease_id)
+    assert updated[4] == "2026-02-01"
+    assert updated[6] == 550.0
+    assert updated[7] == 600.0
+
+    repository.delete_lease(lease_id)
+    assert repository.list_leases_full() == []
+
+
+def test_get_payment_detail(temp_db):
+    lease_id = _seed_lease()
+    repository.add_payment(lease_id, 500.0, "Cash")
+    payment_id = repository.list_payments_with_id()[0][0]
+
+    detail = repository.get_payment_detail(payment_id)
+    # (receipt, date, amount, method, notes, first, last, property, unit)
+    assert detail[2] == 500.0
+    assert detail[3] == "Cash"
+    assert detail[5] == "Sam"
+    assert detail[7] == "My House"

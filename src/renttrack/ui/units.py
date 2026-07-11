@@ -1,10 +1,13 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
+    QHBoxLayout,
     QPushButton,
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QComboBox,
     QMessageBox
 )
@@ -22,6 +25,8 @@ class UnitWindow(QWidget):
 
         self.setWindowTitle("Unit Management")
         self.resize(500, 600)
+
+        self.selected_id = None
 
         layout = QVBoxLayout()
 
@@ -95,29 +100,40 @@ class UnitWindow(QWidget):
 
 
         #
-        # Save Button
+        # Action Buttons
         #
-        save_button = QPushButton(
+        self.save_button = QPushButton(
             "Save Unit"
         )
 
-        save_button.clicked.connect(
+        self.save_button.clicked.connect(
             self.save_unit
         )
 
-        layout.addWidget(
-            save_button
-        )
+        new_button = QPushButton("New")
+        new_button.clicked.connect(self.clear_form)
+
+        self.delete_button = QPushButton("Delete")
+        self.delete_button.clicked.connect(self.delete_unit)
+        self.delete_button.setEnabled(False)
+
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.save_button)
+        buttons.addWidget(new_button)
+        buttons.addWidget(self.delete_button)
+
+        layout.addLayout(buttons)
 
 
         #
         # Existing Units
         #
         layout.addWidget(
-            QLabel("Existing Units")
+            QLabel("Existing Units (click to edit)")
         )
 
         self.unit_list = QListWidget()
+        self.unit_list.itemClicked.connect(self.select_unit)
 
         layout.addWidget(
             self.unit_list
@@ -172,6 +188,19 @@ class UnitWindow(QWidget):
             return
 
 
+        name = self.name.text().strip()
+
+        if not name:
+
+            QMessageBox.warning(
+                self,
+                "Missing Name",
+                "Unit name is required."
+            )
+
+            return
+
+
         rent_text = self.rent.text().strip()
 
         try:
@@ -194,12 +223,21 @@ class UnitWindow(QWidget):
 
 
         try:
-            repository.add_unit(
-                property_id,
-                self.name.text(),
-                self.description.text(),
-                monthly_rent,
-            )
+            if self.selected_id is None:
+                repository.add_unit(
+                    property_id,
+                    name,
+                    self.description.text(),
+                    monthly_rent,
+                )
+            else:
+                repository.update_unit(
+                    self.selected_id,
+                    property_id,
+                    name,
+                    self.description.text(),
+                    monthly_rent,
+                )
         except sqlite3.Error as error:
             QMessageBox.critical(
                 self,
@@ -209,13 +247,82 @@ class UnitWindow(QWidget):
             return
 
 
-        QMessageBox.information(
+        self.clear_form()
+        self.load_units()
+
+
+
+    #
+    # Load One Unit Into The Form
+    #
+    def select_unit(self, item):
+
+        unit_id = item.data(Qt.UserRole)
+        record = repository.get_unit(unit_id)
+
+        if record is None:
+            return
+
+        # record = (id, property_id, name, description, monthly_rent)
+        self.selected_id = record[0]
+
+        index = self.property_combo.findData(record[1])
+        if index >= 0:
+            self.property_combo.setCurrentIndex(index)
+
+        self.name.setText(record[2] or "")
+        self.description.setText(record[3] or "")
+        self.rent.setText(str(record[4]) if record[4] is not None else "")
+
+        self.save_button.setText("Update Unit")
+        self.delete_button.setEnabled(True)
+
+
+
+    #
+    # Reset The Form For A New Unit
+    #
+    def clear_form(self):
+
+        self.selected_id = None
+        self.name.clear()
+        self.description.clear()
+        self.rent.clear()
+        self.unit_list.clearSelection()
+
+        self.save_button.setText("Save Unit")
+        self.delete_button.setEnabled(False)
+
+
+
+    #
+    # Delete The Selected Unit
+    #
+    def delete_unit(self):
+
+        if self.selected_id is None:
+            return
+
+        confirm = QMessageBox.question(
             self,
-            "Success",
-            "Unit created successfully."
+            "Delete Unit",
+            "Delete this unit?"
         )
 
+        if confirm != QMessageBox.Yes:
+            return
 
+        try:
+            repository.delete_unit(self.selected_id)
+        except sqlite3.Error as error:
+            QMessageBox.critical(
+                self,
+                "Database Error",
+                f"Could not delete unit:\n{error}"
+            )
+            return
+
+        self.clear_form()
         self.load_units()
 
 
@@ -227,13 +334,16 @@ class UnitWindow(QWidget):
 
         self.unit_list.clear()
 
-        for unit in repository.list_units_with_property():
+        # row = (id, property_id, property_name, name, description, monthly_rent)
+        for row in repository.list_units():
 
-            self.unit_list.addItem(
+            item = QListWidgetItem(
 
-                f"{unit[0]} | "
-                f"{unit[1]} | "
-                f"{unit[2]} | "
-                f"${unit[3]}"
+                f"{row[2]} | "
+                f"{row[3]} | "
+                f"{row[4]} | "
+                f"${row[5]}"
 
             )
+            item.setData(Qt.UserRole, row[0])
+            self.unit_list.addItem(item)

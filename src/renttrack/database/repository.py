@@ -263,3 +263,248 @@ def payments_summary_by_lease():
             ORDER BY t.last_name, t.first_name
             """
         ).fetchall()
+
+
+# ---------------------------------------------------------------------------
+# Detail lookups, updates and deletes
+# ---------------------------------------------------------------------------
+def get_property(property_id):
+    """Return (id, name, address) for one property, or None."""
+    with _cursor() as cursor:
+        return cursor.execute(
+            "SELECT id, name, address FROM properties WHERE id = ?",
+            (property_id,),
+        ).fetchone()
+
+
+def update_property(property_id, name, address):
+    with _cursor() as cursor:
+        cursor.execute(
+            "UPDATE properties SET name = ?, address = ? WHERE id = ?",
+            (name, address, property_id),
+        )
+
+
+def delete_property(property_id):
+    with _cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM properties WHERE id = ?",
+            (property_id,),
+        )
+
+
+def list_units():
+    """Return (id, property_id, property_name, name, description, monthly_rent)."""
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT u.id, u.property_id, p.name, u.name, u.description, u.monthly_rent
+            FROM units u
+            JOIN properties p ON u.property_id = p.id
+            ORDER BY p.name, u.name
+            """
+        ).fetchall()
+
+
+def get_unit(unit_id):
+    """Return (id, property_id, name, description, monthly_rent), or None."""
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT id, property_id, name, description, monthly_rent
+            FROM units WHERE id = ?
+            """,
+            (unit_id,),
+        ).fetchone()
+
+
+def update_unit(unit_id, property_id, name, description, monthly_rent):
+    with _cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE units
+            SET property_id = ?, name = ?, description = ?, monthly_rent = ?
+            WHERE id = ?
+            """,
+            (property_id, name, description, monthly_rent, unit_id),
+        )
+
+
+def delete_unit(unit_id):
+    with _cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM units WHERE id = ?",
+            (unit_id,),
+        )
+
+
+def get_tenant(tenant_id):
+    """Return (id, first_name, last_name, email, phone), or None."""
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT id, first_name, last_name, email, phone
+            FROM tenants WHERE id = ?
+            """,
+            (tenant_id,),
+        ).fetchone()
+
+
+def update_tenant(tenant_id, first_name, last_name, email, phone=None):
+    with _cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE tenants
+            SET first_name = ?, last_name = ?, email = ?, phone = ?
+            WHERE id = ?
+            """,
+            (first_name, last_name, email, phone, tenant_id),
+        )
+
+
+def delete_tenant(tenant_id):
+    with _cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM tenants WHERE id = ?",
+            (tenant_id,),
+        )
+
+
+def list_leases_full():
+    """Return full lease rows for display and editing.
+
+    (id, tenant_id, property_id, unit_id, first_name, last_name,
+    property_name, unit_name, lease_start, lease_end, monthly_rent,
+    security_deposit)
+    """
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT
+                l.id, l.tenant_id, l.property_id, l.unit_id,
+                t.first_name, t.last_name, p.name, u.name,
+                l.lease_start, l.lease_end, l.monthly_rent, l.security_deposit
+            FROM leases l
+            JOIN tenants t ON l.tenant_id = t.id
+            JOIN properties p ON l.property_id = p.id
+            JOIN units u ON l.unit_id = u.id
+            ORDER BY l.id DESC
+            """
+        ).fetchall()
+
+
+def get_lease(lease_id):
+    """Return full lease row, or None.
+
+    (id, tenant_id, property_id, unit_id, lease_start, lease_end,
+    monthly_rent, security_deposit)
+    """
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT id, tenant_id, property_id, unit_id,
+                   lease_start, lease_end, monthly_rent, security_deposit
+            FROM leases WHERE id = ?
+            """,
+            (lease_id,),
+        ).fetchone()
+
+
+def update_lease(
+    lease_id,
+    tenant_id,
+    property_id,
+    unit_id,
+    lease_start,
+    lease_end,
+    monthly_rent,
+    security_deposit,
+):
+    with _cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE leases
+            SET tenant_id = ?, property_id = ?, unit_id = ?,
+                lease_start = ?, lease_end = ?, monthly_rent = ?,
+                security_deposit = ?
+            WHERE id = ?
+            """,
+            (
+                tenant_id,
+                property_id,
+                unit_id,
+                lease_start,
+                lease_end,
+                monthly_rent,
+                security_deposit,
+                lease_id,
+            ),
+        )
+
+
+def delete_lease(lease_id):
+    with _cursor() as cursor:
+        cursor.execute(
+            "DELETE FROM leases WHERE id = ?",
+            (lease_id,),
+        )
+
+
+def get_payment_detail(payment_id):
+    """Return a detailed payment row for the read-only detail view, or None.
+
+    (receipt_number, payment_date, amount, payment_method, notes,
+    first_name, last_name, property_name, unit_name)
+    """
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT
+                pay.receipt_number, pay.payment_date, pay.amount,
+                pay.payment_method, pay.notes,
+                t.first_name, t.last_name, p.name, u.name
+            FROM payments pay
+            JOIN leases l ON pay.lease_id = l.id
+            JOIN tenants t ON l.tenant_id = t.id
+            JOIN properties p ON l.property_id = p.id
+            JOIN units u ON l.unit_id = u.id
+            WHERE pay.id = ?
+            """,
+            (payment_id,),
+        ).fetchone()
+
+
+def list_payments_with_id():
+    """Return (id, receipt_number, amount, payment_date), newest first."""
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT id, receipt_number, amount, payment_date
+            FROM payments
+            ORDER BY id DESC
+            """
+        ).fetchall()
+
+
+def get_payment_receipt_context(payment_id):
+    """Return a payment's data for emailing a receipt, or None.
+
+    (receipt_number, payment_date, amount, payment_method, notes,
+    first_name, last_name, email, property_name, unit_name)
+    """
+    with _cursor() as cursor:
+        return cursor.execute(
+            """
+            SELECT
+                pay.receipt_number, pay.payment_date, pay.amount,
+                pay.payment_method, pay.notes,
+                t.first_name, t.last_name, t.email, p.name, u.name
+            FROM payments pay
+            JOIN leases l ON pay.lease_id = l.id
+            JOIN tenants t ON l.tenant_id = t.id
+            JOIN properties p ON l.property_id = p.id
+            JOIN units u ON l.unit_id = u.id
+            WHERE pay.id = ?
+            """,
+            (payment_id,),
+        ).fetchone()

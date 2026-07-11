@@ -17,6 +17,15 @@ data/*.db
 *.db
 *.sqlite3
 
+# Local secrets / SMTP credentials (never commit)
+data/email_config.json
+
+# Archived receipt PDFs
+data/receipts/
+
+# Generated email previews
+data/preview/
+
 # Distribution / packaging
 build/
 dist/
