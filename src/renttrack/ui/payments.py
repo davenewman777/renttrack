@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, QDate
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QWidget,
@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QComboBox,
     QLineEdit,
+    QDateEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox
@@ -62,6 +63,21 @@ class PaymentWindow(QWidget):
 
         layout.addWidget(
             self.amount
+        )
+
+
+        layout.addWidget(
+            QLabel("Payment Date")
+        )
+
+
+        self.payment_date = QDateEdit()
+        self.payment_date.setCalendarPopup(True)
+        self.payment_date.setDisplayFormat("yyyy-MM-dd")
+        self.payment_date.setDate(QDate.currentDate())
+
+        layout.addWidget(
+            self.payment_date
         )
 
 
@@ -238,6 +254,7 @@ class PaymentWindow(QWidget):
                 lease_id,
                 amount,
                 self.method.currentText(),
+                self.payment_date.date().toString("yyyy-MM-dd"),
             )
 
         except sqlite3.Error as error:
