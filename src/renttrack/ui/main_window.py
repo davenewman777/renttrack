@@ -6,9 +6,10 @@ from PySide6.QtWidgets import (
     QWidget
 )
 from ui.tenants import TenantWindow
-
 from ui.properties import PropertyWindow
 from ui.units import UnitWindow
+from ui.leases import LeaseWindow
+from ui.payments import PaymentWindow
 
 class MainWindow(QMainWindow):
 
@@ -44,6 +45,13 @@ class MainWindow(QMainWindow):
             self.open_properties
         )
 
+        leases = QPushButton(
+            "Manage Leases"
+        )
+
+        leases.clicked.connect(
+        self.open_leases
+        )
 
         units = QPushButton(
             "Manage Units"
@@ -57,6 +65,18 @@ class MainWindow(QMainWindow):
             self.open_tenants
         )
 
+        payments = QPushButton(
+            "Payments"
+        )
+
+        payments.clicked.connect(
+            self.open_payments
+        )
+
+        layout.addWidget(
+            payments
+        )
+
         reports = QPushButton(
             "Reports"
         )
@@ -66,6 +86,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(tenants)
         layout.addWidget(properties)
         layout.addWidget(units)
+        layout.addWidget(leases)
         layout.addWidget(reports)
 
         container = QWidget()
@@ -76,7 +97,6 @@ class MainWindow(QMainWindow):
     def open_tenants(self):
 
         self.tenant_window = TenantWindow()
-
         self.tenant_window.show()
 
     def open_properties(self):
@@ -88,3 +108,13 @@ class MainWindow(QMainWindow):
 
         self.unit_window = UnitWindow()
         self.unit_window.show()
+
+    def open_leases(self):
+
+        self.lease_window = LeaseWindow()
+        self.lease_window.show()
+
+    def open_payments(self):
+
+        self.payment_window = PaymentWindow()
+        self.payment_window.show()

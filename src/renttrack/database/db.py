@@ -49,14 +49,31 @@ def initialize_database():
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS payments (
+
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        receipt_number TEXT,
-        tenant_id INTEGER,
-        amount REAL,
+        lease_id INTEGER,
+        receipt_number TEXT UNIQUE, 
         payment_date TEXT,
-        payment_method TEXT
+        amount REAL,
+        payment_method TEXT,
+        notes TEXT
+
     )
     """)
+
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS leases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER,
+    unit_id INTEGER,
+    lease_start TEXT,
+    lease_end TEXT,
+    monthly_rent REAL,
+    security_deposit REAL,
+    active INTEGER DEFAULT 1
+
+)
+""")
 
     connection.commit()
     connection.close()
