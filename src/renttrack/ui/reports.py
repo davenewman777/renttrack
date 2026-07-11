@@ -40,7 +40,7 @@ class ReportsWindow(QWidget):
         )
 
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(
             [
                 "Tenant",
@@ -48,6 +48,7 @@ class ReportsWindow(QWidget):
                 "Unit",
                 "Payments",
                 "Total Paid",
+                "Last Payment",
             ]
         )
         self.table.horizontalHeader().setSectionResizeMode(
@@ -89,7 +90,8 @@ class ReportsWindow(QWidget):
 
         for row_index, row in enumerate(rows):
 
-            first_name, last_name, property_name, unit_name, count, total = row
+            (first_name, last_name, property_name, unit_name,
+             count, total, last_payment) = row
 
             values = [
                 f"{first_name} {last_name}",
@@ -97,6 +99,7 @@ class ReportsWindow(QWidget):
                 unit_name,
                 str(count),
                 f"${total:,.2f}",
+                last_payment or "—",
             ]
 
             for col_index, value in enumerate(values):

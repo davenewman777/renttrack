@@ -242,7 +242,7 @@ def payments_summary_by_lease():
     """Return per-lease payment totals.
 
     Rows of (first_name, last_name, property_name, unit_name,
-    payment_count, total_paid) for every lease.
+    payment_count, total_paid, last_payment_date) for every lease.
     """
     with _cursor() as cursor:
         return cursor.execute(
@@ -253,7 +253,8 @@ def payments_summary_by_lease():
                 p.name,
                 u.name,
                 COUNT(pay.id),
-                COALESCE(SUM(pay.amount), 0)
+                COALESCE(SUM(pay.amount), 0),
+                MAX(pay.payment_date)
             FROM leases l
             JOIN tenants t ON l.tenant_id = t.id
             JOIN properties p ON l.property_id = p.id
