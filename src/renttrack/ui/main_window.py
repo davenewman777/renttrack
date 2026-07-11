@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget
 )
-
+from ui.tenants import TenantWindow
 
 class MainWindow(QMainWindow):
 
@@ -30,7 +30,11 @@ class MainWindow(QMainWindow):
         )
 
         tenants = QPushButton(
-            "Manage Tenants"
+        "Manage Tenants"
+        )
+
+        tenants.clicked.connect(
+            self.open_tenants
         )
 
         reports = QPushButton(
@@ -46,3 +50,9 @@ class MainWindow(QMainWindow):
         container.setLayout(layout)
 
         self.setCentralWidget(container)
+
+    def open_tenants(self):
+
+        self.tenant_window = TenantWindow()
+
+        self.tenant_window.show()
