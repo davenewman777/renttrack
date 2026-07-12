@@ -103,7 +103,8 @@ def test_payments_summary_by_lease(temp_db):
 
     summary = repository.payments_summary_by_lease()
     assert len(summary) == 1
-    first_name, last_name, property_name, unit_name, count, total = summary[0]
+    (first_name, last_name, property_name, unit_name,
+     count, total, last_payment) = summary[0]
     assert (first_name, last_name) == ("Sam", "Lee")
     assert count == 1
     assert total == 500.0

@@ -109,6 +109,55 @@ def build_receipt(context):
     return subject, body
 
 
+def build_receipt_html(context):
+    """Build an HTML receipt body with a gridlined details table.
+
+    Mirrors the fields in ``build_receipt`` but lays them out in a bordered
+    two-column table. Pure function (no I/O) so it can be tested directly.
+    """
+    import html
+
+    rows = [
+        ("Receipt number", context["receipt_number"]),
+        ("Date", context["payment_date"]),
+        ("Amount", f"${context['amount']}"),
+        ("Method", context["payment_method"]),
+        ("Property", context["property_name"]),
+        ("Unit", context["unit_name"]),
+    ]
+
+    if context.get("notes"):
+        rows.append(("Notes", context["notes"]))
+
+    table_rows = "".join(
+        (
+            "<tr>"
+            f"<td style=\"border:1px solid #333;padding:6px 10px;"
+            f"background:#f5f5f5;font-weight:bold;\">{html.escape(str(label))}</td>"
+            f"<td style=\"border:1px solid #333;padding:6px 10px;\">"
+            f"{html.escape(str(value))}</td>"
+            "</tr>"
+        )
+        for label, value in rows
+    )
+
+    sender_name = context.get("sender_name")
+    signature = (
+        f"{html.escape(sender_name)}<br>RentTrack" if sender_name else "RentTrack"
+    )
+
+    return (
+        "<html><body style=\"font-family:Arial,sans-serif;color:#222;\">"
+        f"<p>Hello {html.escape(str(context['tenant_name']))},</p>"
+        "<p>Thank you for your payment. Here is your receipt.</p>"
+        "<table style=\"border-collapse:collapse;border:1px solid #333;\">"
+        f"{table_rows}"
+        "</table>"
+        f"<p>Regards,<br>{signature}</p>"
+        "</body></html>"
+    )
+
+
 def send_receipt(to_email, context):
     """Send a receipt email to ``to_email``.
 
@@ -136,6 +185,7 @@ def send_receipt(to_email, context):
     message["From"] = config["from_address"]
     message["To"] = to_email
     message.set_content(body)
+    message.add_alternative(build_receipt_html(context), subtype="html")
 
     pdf_bytes = build_receipt_pdf(context)
     message.add_attachment(

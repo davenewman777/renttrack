@@ -7,9 +7,17 @@ test. ``build_receipt_pdf`` is a pure function (no file or network I/O).
 from io import BytesIO
 from pathlib import Path
 
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer,
+)
 
 import database.db as db
 
@@ -21,41 +29,57 @@ def build_receipt_pdf(context):
     notes, tenant_name, property_name, unit_name.
     """
     buffer = BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=LETTER)
-    width, height = LETTER
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=LETTER,
+        leftMargin=inch,
+        rightMargin=inch,
+        topMargin=inch,
+        bottomMargin=inch,
+    )
 
-    left = inch
-    y = height - inch
+    styles = getSampleStyleSheet()
 
-    pdf.setFont("Helvetica-Bold", 18)
-    pdf.drawString(left, y, "RentTrack Payment Receipt")
-
-    y -= 0.5 * inch
-    pdf.setFont("Helvetica", 12)
-
-    lines = [
-        f"Receipt number: {context['receipt_number']}",
-        f"Date: {context['payment_date']}",
-        f"Tenant: {context['tenant_name']}",
-        f"Property: {context['property_name']}",
-        f"Unit: {context['unit_name']}",
-        f"Amount: ${context['amount']}",
-        f"Method: {context['payment_method']}",
+    rows = [
+        ["Receipt number", str(context["receipt_number"])],
+        ["Date", str(context["payment_date"])],
+        ["Tenant", str(context["tenant_name"])],
+        ["Property", str(context["property_name"])],
+        ["Unit", str(context["unit_name"])],
+        ["Amount", f"${context['amount']}"],
+        ["Method", str(context["payment_method"])],
     ]
 
     if context.get("notes"):
-        lines.append(f"Notes: {context['notes']}")
+        rows.append(["Notes", str(context["notes"])])
 
-    for line in lines:
-        pdf.drawString(left, y, line)
-        y -= 0.3 * inch
+    table = Table(rows, colWidths=[2.0 * inch, 4.0 * inch])
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.75, colors.black),
+                ("BACKGROUND", (0, 0), (0, -1), colors.whitesmoke),
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 0), (-1, -1), 11),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
 
-    y -= 0.3 * inch
-    pdf.setFont("Helvetica-Oblique", 10)
-    pdf.drawString(left, y, "Thank you for your payment.")
+    elements = [
+        Paragraph("RentTrack Payment Receipt", styles["Title"]),
+        Spacer(1, 0.3 * inch),
+        table,
+        Spacer(1, 0.3 * inch),
+        Paragraph("Thank you for your payment.", styles["Italic"]),
+    ]
 
-    pdf.showPage()
-    pdf.save()
+    doc.build(elements)
 
     return buffer.getvalue()
 
