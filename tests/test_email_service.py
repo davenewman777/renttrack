@@ -78,6 +78,28 @@ def test_send_receipt_requires_email(email_env):
         email_service.send_receipt("", _context())
 
 
+def test_delivery_error_message_explains_brevo_unauthorized_ip(email_env):
+    email_env.setenv("RENTTRACK_SMTP_HOST", "smtp-relay.brevo.com")
+    error = smtplib.SMTPAuthenticationError(
+        525,
+        b"5.7.1 Unauthorized IP address",
+    )
+
+    message = email_service.delivery_error_message(error)
+
+    assert "Brevo rejected this computer's public IP address" in message
+    assert "Authorize your current public IP" in message
+    assert "525" in message
+
+
+def test_delivery_error_message_preserves_other_smtp_errors(email_env):
+    error = smtplib.SMTPException("Connection closed")
+
+    assert email_service.delivery_error_message(error) == (
+        "Could not send receipt:\nConnection closed"
+    )
+
+
 def test_send_receipt_uses_smtp_when_configured(email_env, monkeypatch):
     monkeypatch.setenv("RENTTRACK_SMTP_HOST", "smtp.example.com")
     monkeypatch.setenv("RENTTRACK_SMTP_USER", "me@example.com")

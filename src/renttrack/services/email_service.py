@@ -76,6 +76,23 @@ def is_configured():
     )
 
 
+def delivery_error_message(error):
+    """Return an actionable message for an SMTP delivery failure."""
+    response = str(error)
+    host = str(load_config().get("host") or "").lower()
+
+    if "unauthorized ip address" in response.lower():
+        provider = "Brevo" if "brevo" in host else "Your SMTP provider"
+        return (
+            f"{provider} rejected this computer's public IP address.\n\n"
+            "Authorize your current public IP in the provider's security or "
+            "SMTP settings, then retry.\n\n"
+            f"SMTP response: {response}"
+        )
+
+    return f"Could not send receipt:\n{response}"
+
+
 def build_receipt(context):
     """Build (subject, body) for a payment receipt.
 

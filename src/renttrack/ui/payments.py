@@ -434,7 +434,7 @@ class PaymentWindow(QWidget):
             QMessageBox.critical(
                 self,
                 "Email Failed",
-                f"Could not send receipt:\n{error}",
+                email_service.delivery_error_message(error),
             )
             return
 

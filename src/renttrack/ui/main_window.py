@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -22,9 +26,21 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout()
 
-        title = QLabel(
-            "RentTrack\nRental Management System"
+        logo = QLabel()
+        logo.setObjectName("mainLogo")
+        logo.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        logo_path = Path(__file__).resolve().parents[3] / "Rent_Track.png"
+        logo.setPixmap(
+            QPixmap(str(logo_path)).scaled(
+                240,
+                240,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
         )
+
+        title = QLabel("Rental Management System")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title.setStyleSheet(
             "font-size: 24px;"
@@ -78,6 +94,7 @@ class MainWindow(QMainWindow):
             self.open_reports
         )
 
+        layout.addWidget(logo)
         layout.addWidget(title)
         layout.addWidget(properties)
         layout.addWidget(units)
